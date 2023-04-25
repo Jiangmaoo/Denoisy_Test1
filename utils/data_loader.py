@@ -43,7 +43,7 @@ def make_data_path_list(phase="train", rate=0.8):
         for name in files_name:
             path_a.append(root_path + phase + '_A/' + name)
             path_b.append(root_path + phase + '_B/' + name)
-            path_c.append(root_path + phase + '_C/' + name.split("_")[0] + ".png")
+            path_c.append(root_path + phase + '_C/' + name)
 
     num = len(path_a)
 
@@ -130,7 +130,7 @@ class ImageDataset(data.Dataset):
         # print(self.img_list["path_C"][0])
 
         img = Image.open(self.img_list["path_A"][index]).convert("RGB")
-        noise_haze = Image.open(self.img_list["path_B"][index])
+        noise_haze = Image.open(self.img_list["path_B"][index]).convert("RGB")
         gt = Image.open(self.img_list["path_C"][index]).convert("RGB")
 
         img, noise_haze, gt = self.img_transform(self.phase, [img, noise_haze, gt])
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     gt = Image.open('../dataset/train/train_C/test.png').convert('RGB')
 
     print(img.size)
-    print(noise_haze.size)
+    #print(noise_haze.size)
     print(gt.size)
 
     f = plt.figure()

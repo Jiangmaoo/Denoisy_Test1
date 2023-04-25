@@ -302,9 +302,9 @@ def train_model(g1,d1,dataloader,val_dataset,num_epochs,parser,save_model_name="
             optimizer_g.step()
             #print(g_loss)
 
-            epoch_g_loss+=g_loss.item()
-            epoch_single_g_loss+=g_l_c_gan1.item()
-            epoch_tf_loss+=g_l_data2.item()
+            epoch_g_loss+=g_loss.item()    #生成器总损失
+            epoch_single_g_loss+=g_l_c_gan1.item()  #gan损失
+            epoch_tf_loss+=g_l_data2.item() #无噪声重构损失
 
         t_epoch_finish=time.time()
         Epoch_D_Loss=epoch_d_loss/(lambda_dict["lambda2"]*2*data_len)
