@@ -113,6 +113,7 @@ class Encoder(nn.Module):
             "x4": x4,
 
         }
+
         return feature_dic
 
 
