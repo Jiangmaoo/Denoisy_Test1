@@ -36,8 +36,8 @@ def make_data_path_list(phase="train", rate=0.8):
             # path_c.append(root_path + phase + '_C_fixed_official/' + name)
 
             path_a.append(root_path + phase + '_A/' + name)
-            path_b.append(root_path + phase + '_B/' + name.split("_")[0] + "_" + name.split("_")[1] + ".png")
-            path_c.append(root_path + phase + '_C/' + name.split("_")[0] + ".png")
+            path_b.append(root_path + phase + '_B/' + name)
+            path_c.append(root_path + phase + '_C/' + name)
 
     elif phase == 'test':
         for name in files_name:

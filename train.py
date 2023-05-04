@@ -129,7 +129,7 @@ def evaluate(g1,dataset,device,filename):
     print(img.shape)
 
     with torch.no_grad():
-        reconstruct_c,reconstruct_n=g1.test_pair(img.to(device),haze_img.to(device))
+        reconstruct_c,reconstruct_n=g1.test(img.to(device),haze_img.to(device))
         grid_rec=make_grid(un_normalize(reconstruct_c.to(torch.device("cpu"))),nrow=3)
         print(grid_rec.shape)
         reconstruct_n=reconstruct_n.to(torch.device("cpu"))

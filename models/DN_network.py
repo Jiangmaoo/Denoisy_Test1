@@ -10,12 +10,12 @@ class DN_Net(nn.Module):
         #对噪声图像编码
         self.noise_encoder = Encoder(input_channels)
         #对加雾的噪声图像进行编码
-        self.haze_encoder = Encoder(input_channels)
+        self.haze_encoder = HazeEncoder(input_channels)
 
         self.clean_decoder = CleanDecoder(input_channels)
         self.noise_decoder = NoiseFeatureDecoder(input_channels)
         #噪声移除解码器
-        self.noise_move_decoder=CleanDecoder(input_channels)
+        self.noise_move_decoder=NoiseDecoder(input_channels)
 
 
         #定义一个实例变量placeholder并将其初始化为None，可以再类方法里面使用
@@ -118,20 +118,28 @@ class Encoder(nn.Module):
 
 
 class HazeEncoder(nn.Module):
-    def __init__(self,input_channels=3):
+    def __init__(self, input_channels=3):
         super(HazeEncoder, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
-        self.relu = nn.ReLU()
+        self.conv1 = Cvi(input_channels, 64)
+        self.conv2 = Cvi(64, 128, before="LReLU", after="BN")
+        self.conv3 = Cvi(128, 256, before="LReLU", after="BN")
+        self.conv4 = Cvi(256, 512, before="LReLU")
 
     def forward(self, x):
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
-        x = self.relu(self.conv3(x))
-        x = self.relu(self.conv4(x))
-        return x
+        x1 = self.conv1(x)
+        x2 = self.conv2(x1)
+        x3 = self.conv3(x2)
+        x4 = self.conv4(x3)
+
+        feature_dic = {
+            "x1": x1,
+            "x2": x2,
+            "x3": x3,
+            "x4": x4,
+
+        }
+
+        return feature_dic
 
 
 class CleanDecoder(nn.Module):
@@ -178,20 +186,23 @@ class NoiseFeatureDecoder(nn.Module):
 
 #噪声去除解码器
 class NoiseDecoder(nn.Module):
-    def __init__(self,output_channels=3):
+    def __init__(self, output_channels=3):
         super(NoiseDecoder, self).__init__()
-        self.conv1 = nn.Conv2d(1024, 256, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(768, 128, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(384, 64, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(192, output_channels, kernel_size=3, stride=1, padding=1)
-        self.relu = nn.ReLU()
+        self.conv1 = CvTi(1024, 256, before="ReLU", after="BN")
+        self.conv2 = CvTi(768, 128, before="ReLU", after="BN")
+        self.conv3 = CvTi(384, 64, before="ReLU", after="BN")
+        self.conv4 = CvTi(192, output_channels, before="ReLU", after="Tanh")
 
     def forward(self, noise, haze):
-        x = torch.cat((noise, haze), dim=1)
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
-        x = self.relu(self.conv3(x))
-        x = self.relu(self.conv4(x))
+        x4 = torch.cat([noise["x4"], (noise["x4"] + haze["x4"]) / 2.0], dim=1)
+        x3 = self.conv1(x4)
+        cat3 = torch.cat([x3, noise["x3"], (noise["x3"] + haze["x3"]) / 2.0], dim=1)
+        x2 = self.conv2(cat3)
+        cat2 = torch.cat([x2, noise["x2"], (noise["x2"] + haze["x2"]) / 2.0], dim=1)
+        x1 = self.conv3(cat2)
+        cat1 = torch.cat([x1, noise["x1"], (noise["x1"] + haze["x1"]) / 2.0], dim=1)
+        x = self.conv4(cat1)
+
         return x
 
 #初始化权重
