@@ -129,11 +129,11 @@ def evaluate(g1,dataset,device,filename):
     print(img.shape)
 
     with torch.no_grad():
-        reconstruct_c,reconstruct_n=g1.test(img.to(device),haze_img.to(device))
+        reconstruct_c,reconstruct_n,z_n=g1.test(img.to(device),haze_img.to(device))
         grid_rec=make_grid(un_normalize(reconstruct_c.to(torch.device("cpu"))),nrow=3)
         print(grid_rec.shape)
         reconstruct_n=reconstruct_n.to(torch.device("cpu"))
-
+        z_n=z_n.to(torch.device("cpu"))
         reconstruct_c=reconstruct_c.to(torch.device("cpu"))
 
     grid_removal=make_grid(
@@ -142,7 +142,8 @@ def evaluate(g1,dataset,device,filename):
                 un_normalize(img),
                 un_normalize(gt),
                 un_normalize(reconstruct_n),
-                un_normalize(reconstruct_c)
+                un_normalize(reconstruct_c),
+                un_normalize(z_n)
             ),
             dim = 0,
         ),
@@ -217,6 +218,7 @@ def train_model(g1,d1,dataloader,val_dataset,num_epochs,parser,save_model_name="
         epoch_d_loss=0.0
         epoch_single_g_loss=0.0
         epoch_tf_loss=0.0
+        epoch_dilate_loss = 0.0
 
         print('--------------')
         print('Epoch  {}/{}'.format(epoch,num_epochs))
@@ -242,7 +244,7 @@ def train_model(g1,d1,dataloader,val_dataset,num_epochs,parser,save_model_name="
             #将模型参数梯度设置为0
             optimizer_d.zero_grad()
             #获取生成器生成的图片
-            reconstruct_clean,reconstruct_no,reconstruct_gt=g1(images,mid_img)
+            reconstruct_clean,reconstruct_no,reconstruct_gt,z_n=g1(images,mid_img)
 
             fake1=torch.cat([images,reconstruct_clean],dim=1)#输入图片和生成噪声图片cat连接
             real1=torch.cat([images,gt],dim=1)#将输入图片和gt做cat连接
@@ -288,6 +290,7 @@ def train_model(g1,d1,dataloader,val_dataset,num_epochs,parser,save_model_name="
             g_l_data1=criterion_bce(reconstruct_no,mask)  #噪声特征图像损失
             g_l_data2=criterion_mse(reconstruct_clean,gt) #无噪声重构损失
             g_l_data3=criterion_mse(reconstruct_gt,gt)  #gt重构损失
+            g_l_data4=criterion_bce(z_n,gt)
             # with torch.no_grad():
             # g_l_data1=reduce_mean(reduce_sum(square(reconstruct_input-images)))
             # g_l_data2=(reduce_sum(square(reconstruct_tf-gt))/2)
@@ -295,16 +298,17 @@ def train_model(g1,d1,dataloader,val_dataset,num_epochs,parser,save_model_name="
             #print(g_l_data1,g_l_data2,g_l_data3)
 
             #生成器总损失
-            g_loss=lambda_dict["lambda1"]*g_l_data1+lambda_dict["lambda1"]*g_l_data2+\
+            g_loss=lambda_dict["lambda1"]*g_l_data1+g_l_data2+\
                 lambda_dict["lambda1"]*g_l_data3+lambda_dict["lambda2"]*g_l_c_gan1
 
             g_loss.backward()
             optimizer_g.step()
-            #print(g_loss)
+            # print(g_l_data4)
 
             epoch_g_loss+=g_loss.item()    #生成器总损失
             epoch_single_g_loss+=g_l_c_gan1.item()  #gan损失
             epoch_tf_loss+=g_l_data2.item() #无噪声重构损失
+            epoch_dilate_loss += g_l_data4.item()  # 无噪声重构损失
 
         t_epoch_finish=time.time()
         Epoch_D_Loss=epoch_d_loss/(lambda_dict["lambda2"]*2*data_len)
@@ -313,12 +317,13 @@ def train_model(g1,d1,dataloader,val_dataset,num_epochs,parser,save_model_name="
         Epoch_tf_Loss=epoch_tf_loss/data_len
 
         print("------------")
-        print("epoch {}  || Epoch_D_Loss:{:.4f}  || Epoch_G_Loss:{:.4f} ||  Epoch_Single_G_Loss:{:.4f}  ||  Epoch_tf_Loss:{:.4f}".format(
+        print("epoch {}  || Epoch_D_Loss:{:.4f}  || Epoch_G_Loss:{:.4f} ||  Epoch_Single_G_Loss:{:.4f}  ||  Epoch_tf_Loss:{:.4f}||Epoch_dilate_Loss:{:.4f}".format(
             epoch,
             epoch_d_loss/(lambda_dict["lambda2"]*2*data_len),
             epoch_g_loss/data_len,
             epoch_single_g_loss/data_len,
-            epoch_tf_loss/data_len
+            epoch_tf_loss/data_len,
+            epoch_dilate_loss/data_len
         ))
         print("timer:{:.4f} sec.".format(t_epoch_finish-t_epoch_start))
 

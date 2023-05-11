@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 class DN_Net(nn.Module):
-    def __init__(self, input_channels=3, output_channels=3):
+    def __init__(self, input_channels=3, output_channels=3,bias=True,kernel_size = 3):
         super(DN_Net, self).__init__()
         #对噪声图像编码
         self.noise_encoder = Encoder(input_channels)
@@ -17,6 +17,9 @@ class DN_Net(nn.Module):
         #噪声移除解码器
         self.noise_move_decoder=NoiseDecoder(input_channels)
 
+        self.dilateconv=DilateConv(input_channels)
+        self.conv_tail = nn.Conv2d(2 * input_channels, output_channels, kernel_size=kernel_size, padding=1, bias=bias)
+        self.up = Up()
 
         #定义一个实例变量placeholder并将其初始化为None，可以再类方法里面使用
         self.placeholder = None
@@ -54,8 +57,15 @@ class DN_Net(nn.Module):
         # mask = (noise_recon > 0.05).float()
         #重建噪声图像解码器的BCE损失，用于衡量去噪效果。二分值
         # noise_loss = F.binary_cross_entropy_with_logits(noise_recon, mask)
+        # 扩张卷积
+        delate_x=self.dilateconv(noise_img)
+        z=torch.cat([clean_recon,delate_x],dim=1)
+        z_=self.conv_tail(z)
+        # print(z_.shape)
+        # print('----------')
 
-        return clean_recon, noise_recon,gt_recon
+
+        return clean_recon, noise_recon,gt_recon,z_
 
     def test(self,noise_img, haze_img):
         noise_features = self.noise_encoder(noise_img)
@@ -66,7 +76,13 @@ class DN_Net(nn.Module):
         noise_recon = self.noise_decoder(noise_features, haze_features)
         gt_recon=self.noise_move_decoder(noise_features, haze_features)
 
-        return clean_recon,noise_recon
+        # 扩张卷积
+        delate_x = self.dilateconv(noise_img)
+        z = torch.cat([clean_recon, delate_x], dim=1)
+        z_ = self.conv_tail(z)
+
+
+        return clean_recon,noise_recon,z_
 
     def test1(self,noise_img, haze_img):
         noise_features = self.noise_encoder(noise_img)
@@ -92,6 +108,147 @@ class DN_Net(nn.Module):
 
         return rec_clean,rec_noise
 
+
+class Up(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        
+class DilateConv(nn.Module):
+    def __init__(self,input_channels=3,output_channels=3,bias=True,kernel_size = 3,nc = 64):
+        super(DilateConv, self).__init__()
+
+        self.m_dilateconv1 = nn.Conv2d(input_channels, nc, kernel_size=kernel_size, padding=1, dilation=1, bias=bias)
+        self.m_bn1 = nn.BatchNorm2d(nc)
+        self.m_relu1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv2 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=2, dilation=2, bias=bias)
+        self.m_bn2 = nn.BatchNorm2d(nc)
+        self.m_relu2 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv3 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=3, dilation=3, bias=bias)
+        self.m_bn3 = nn.BatchNorm2d(nc)
+        self.m_relu3 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv4 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=4, dilation=4, bias=bias)
+        self.m_bn4 = nn.BatchNorm2d(nc)
+        self.m_relu4 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv5 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=5, dilation=5, bias=bias)
+        self.m_bn5 = nn.BatchNorm2d(nc)
+        self.m_relu5 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv6 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=6, dilation=6, bias=bias)
+        self.m_bn6 = nn.BatchNorm2d(nc)
+        self.m_relu6 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv7 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=7, dilation=7, bias=bias)
+        self.m_bn7 = nn.BatchNorm2d(nc)
+        self.m_relu7 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv8 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=8, dilation=8, bias=bias)
+        self.m_bn8 = nn.BatchNorm2d(nc)
+        self.m_relu8 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv7_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=7, dilation=7, bias=bias)
+        self.m_bn7_1 = nn.BatchNorm2d(nc)
+        self.m_relu7_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv6_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=6, dilation=6, bias=bias)
+        self.m_bn6_1 = nn.BatchNorm2d(nc)
+        self.m_relu6_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv5_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=5, dilation=5, bias=bias)
+        self.m_bn5_1 = nn.BatchNorm2d(nc)
+        self.m_relu5_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv4_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=4, dilation=4, bias=bias)
+        self.m_bn4_1 = nn.BatchNorm2d(nc)
+        self.m_relu4_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv3_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=3, dilation=3, bias=bias)
+        self.m_bn3_1 = nn.BatchNorm2d(nc)
+        self.m_relu3_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv2_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=2, dilation=2, bias=bias)
+        self.m_bn2_1 = nn.BatchNorm2d(nc)
+        self.m_relu2_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv1_1 = nn.Conv2d(nc, nc, kernel_size=kernel_size, padding=1, dilation=1, bias=bias)
+        self.m_bn1_1 = nn.BatchNorm2d(nc)
+        self.m_relu1_1 = nn.ReLU(inplace=True)
+
+        self.m_dilateconv = nn.Conv2d(nc, output_channels, kernel_size=kernel_size, padding=1, bias=bias)
+
+        self.conv_tail = nn.Conv2d(2 * output_channels, output_channels, kernel_size=kernel_size, padding=1, bias=bias)
+
+
+    def forward(self, x):
+        y1 = self.m_dilateconv1(x)
+        y1_1 = self.m_bn1(y1)
+        y1_1 = self.m_relu1(y1_1)
+
+        y2 = self.m_dilateconv2(y1_1)
+        y2_1 = self.m_bn2(y2)
+        y2_1 = self.m_relu2(y2_1)
+
+        y3 = self.m_dilateconv3(y2_1)
+        y3_1 = self.m_bn3(y3)
+        y3_1 = self.m_relu3(y3_1)
+
+        y4 = self.m_dilateconv4(y3_1)
+        y4_1 = self.m_bn4(y4)
+        y4_1 = self.m_relu4(y4_1)
+
+        y5 = self.m_dilateconv5(y4_1)
+        y5_1 = self.m_bn5(y5)
+        y5_1 = self.m_relu5(y5_1)
+
+        y6 = self.m_dilateconv6(y5_1)
+        y6_1 = self.m_bn6(y6)
+        y6_1 = self.m_relu6(y6_1)
+
+        y7 = self.m_dilateconv7(y6_1)
+        y7_1 = self.m_bn7(y7)
+        y7_1 = self.m_relu7(y7_1)
+
+        y8 = self.m_dilateconv8(y7_1)
+        y8_1 = self.m_bn8(y8)
+        y8_1 = self.m_relu8(y8_1)
+
+        y9 = self.m_dilateconv7_1(y8_1)
+        y9 = self.m_bn7_1(y9)
+        y9 = self.m_relu7_1(y9)
+
+        y10 = self.m_dilateconv6_1(y9 + y7)
+        y10 = self.m_bn6_1(y10)
+        y10 = self.m_relu6_1(y10)
+
+        y11 = self.m_dilateconv5_1(y10 + y6)
+        y11 = self.m_bn5_1(y11)
+        y11 = self.m_relu5_1(y11)
+
+        y12 = self.m_dilateconv4_1(y11 + y5)
+        y12 = self.m_bn4_1(y12)
+        y12 = self.m_relu4_1(y12)
+
+        y13 = self.m_dilateconv3_1(y12 + y4)
+        y13 = self.m_bn3_1(y13)
+        y13 = self.m_relu3_1(y13)
+
+        y14 = self.m_dilateconv2_1(y13 + y3)
+        y14 = self.m_bn2_1(y14)
+        y14 = self.m_relu2_1(y14)
+
+        y15 = self.m_dilateconv1_1(y14 + y2)
+        y15 = self.m_bn1_1(y15)
+        y15 = self.m_relu1_1(y15)
+
+        y = self.m_dilateconv(y15 + y1)
+
+        return y
+
+
 class Encoder(nn.Module):
     def __init__(self,input_channels=3):
         super(Encoder, self).__init__()
@@ -105,6 +262,11 @@ class Encoder(nn.Module):
         x2 = self.conv2(x1)
         x3 = self.conv3(x2)
         x4=self.conv4(x3)
+        # print(x1.shape)
+        # print(x2.shape)
+        # print(x3.shape)
+        # print(x4.shape)
+        # print('-------')
 
         feature_dic = {
             "x1": x1,
@@ -152,8 +314,15 @@ class CleanDecoder(nn.Module):
 
 
     def forward(self, noise, haze):
+
         x4 = torch.cat([noise["x4"], (noise["x4"]+haze["x4"])/2.0], dim=1)
+        # print(x4.shape)
+        # print(noise["x4"].shape)
         x3 = self.conv1(x4)
+        # print(x3.shape)
+        # print(noise["x3"].shape)
+        # print((noise["x3"]+haze["x3"]).shape)
+        # print(haze["x3"].shape)
         cat3 = torch.cat([x3, noise["x3"], (noise["x3"]+haze["x3"])/2.0], dim=1)
         x2 = self.conv2(cat3)
         cat2 = torch.cat([x2, noise["x2"], (noise["x2"]+haze["x2"])/2.0], dim=1)
@@ -259,6 +428,42 @@ class Cvi(nn.Module):
         if hasattr(self,"after"):
             x=self.after(x)
         return x
+
+
+# 扩张卷积
+class DilateCvi(nn.Module):
+    def __init__(self,in_channels,out_channels,before=None,after=False,kernel_size=4,stride=2,
+                 padding=1,dilation=1,groups=1,bias=False):
+        super(Cvi,self).__init__()
+
+        #初始化卷积
+        self.conv=nn.Conv2d(in_channels=in_channels,out_channels=out_channels,kernel_size=kernel_size,
+                            stride=stride,padding=padding,dilation=dilation,groups=groups,bias=bias)
+
+        #初始化卷积参数
+        self.conv.apply(weights_init("gaussian"))
+
+        #卷积后进行的操作
+        if after=="BN":
+            self.after=nn.BatchNorm2d(out_channels)   #归一化
+        elif after=="Tanh":
+            self.after=torch.tanh #tanh激活函数（-1到1S型）
+        elif after=="sigmoid":
+            self.after=torch.sigmoid    #sigmoid激活函数（0到1S型）
+
+        #卷积前进行的操作
+        if before=="ReLU":
+            self.after=nn.ReLU(inplace=True)  #ReLU激活函数（<0时=0；>0时等于自身)(inplace=True,节省反复申请与释放内存的空间和时间)
+        elif before=="LReLU":
+            self.before=nn.LeakyReLU(negative_slope=0.2,inplace=False)  #LeakyReLu激活函数（<0时斜率为0.2）
+
+    def forward(self,x):
+        if hasattr(self,"before"):
+            x=self.before(x)
+        x=self.conv(x)
+        if hasattr(self,"after"):
+            x=self.after(x)
+        return x
 #逆卷积
 class CvTi(nn.Module):
     def __init__(self,in_channels,out_channels,before=None,after=False,kernel_size=4,stride=2,
@@ -316,6 +521,11 @@ if __name__=='__main__':
     input1=torch.ones(size)
     input2=torch.ones(size)
     # l2=nn.L2Loss()
+    model = DN_Net()
+    noise_img = torch.randn(1, 3, 256, 256)
+    haze_img = torch.randn(1, 3, 256, 256)
+    clean_recon, noise_recon, gt_recon,z_n = model(noise_img, haze_img)
+    print(clean_recon.shape, noise_recon.shape, gt_recon.shape)
 
     # size(3,3,256,256)
     input=torch.ones(size)
