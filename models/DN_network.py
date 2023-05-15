@@ -59,7 +59,10 @@ class DN_Net(nn.Module):
         # noise_loss = F.binary_cross_entropy_with_logits(noise_recon, mask)
         # 扩张卷积
         delate_x=self.dilateconv(noise_img)
-        z=torch.cat([clean_recon,delate_x],dim=1)
+        x=clean_recon+noise_img
+        y=delate_x+noise_img
+
+        z=torch.cat([x,y],dim=1)
         z_=self.conv_tail(z)
         # print(z_.shape)
         # print('----------')
@@ -82,7 +85,7 @@ class DN_Net(nn.Module):
         z_ = self.conv_tail(z)
 
 
-        return clean_recon,noise_recon,z_
+        return clean_recon,noise_recon,delate_x,z_
 
     def test1(self,noise_img, haze_img):
         noise_features = self.noise_encoder(noise_img)

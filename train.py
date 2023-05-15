@@ -129,10 +129,11 @@ def evaluate(g1,dataset,device,filename):
     print(img.shape)
 
     with torch.no_grad():
-        reconstruct_c,reconstruct_n,z_n=g1.test(img.to(device),haze_img.to(device))
+        reconstruct_c,reconstruct_n,dialate_z,z_n=g1.test(img.to(device),haze_img.to(device))
         grid_rec=make_grid(un_normalize(reconstruct_c.to(torch.device("cpu"))),nrow=3)
         print(grid_rec.shape)
         reconstruct_n=reconstruct_n.to(torch.device("cpu"))
+        dialate_z = dialate_z.to(torch.device("cpu"))
         z_n=z_n.to(torch.device("cpu"))
         reconstruct_c=reconstruct_c.to(torch.device("cpu"))
 
@@ -143,6 +144,7 @@ def evaluate(g1,dataset,device,filename):
                 un_normalize(gt),
                 un_normalize(reconstruct_n),
                 un_normalize(reconstruct_c),
+                un_normalize(dialate_z),
                 un_normalize(z_n)
             ),
             dim = 0,
